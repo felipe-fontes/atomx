@@ -9,18 +9,42 @@ class ContactsController {
     ContactsState.initial,
   );
 
-  void loadContacts() {
+  final me = AtomxState<Contact, ContactsState>(
+    const Contact(id: '1', name: 'Me'),
+    ContactsState.initial,
+  );
+
+  Contact? getContact(String contactId) {
+    return contacts.value[contactId];
+  }
+
+  Future<void> fetchMe() async {
+    me.update(state: ContactsState.loading);
+    // Simulate loading me
+    await Future.delayed(const Duration(milliseconds: 500));
+    me.update(
+      value: const Contact(id: '1', name: 'Me'),
+      state: ContactsState.loaded,
+    );
+  }
+
+  Future<void> loadContacts() async {
     contacts.updateState(ContactsState.loading);
     // Simulate loading contacts
-    Future.delayed(const Duration(seconds: 1), () {
-      contacts.updateMapAndState(
-        value: {
-          '1': Contact(id: '1', name: 'Alice'),
-          '2': Contact(id: '2', name: 'Bob'),
-        },
-        state: ContactsState.loaded,
-      );
-    });
+    await Future.delayed(const Duration(seconds: 1));
+    contacts.updateMapAndState(
+      value: {
+        '2': const Contact(
+          id: '2',
+          name: 'Alice',
+        ),
+        '3': const Contact(
+          id: '3',
+          name: 'Bob',
+        ),
+      },
+      state: ContactsState.loaded,
+    );
   }
 
   String getContactName(String contactId) {

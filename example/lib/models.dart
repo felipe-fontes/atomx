@@ -1,3 +1,4 @@
+// Models for the chat application
 class Message {
   final String id;
   final String fromId;
@@ -5,7 +6,7 @@ class Message {
   final String content;
   final DateTime timestamp;
 
-  Message({
+  const Message({
     required this.id,
     required this.fromId,
     required this.toId,
@@ -18,7 +19,7 @@ class Contact {
   final String id;
   final String name;
 
-  Contact({
+  const Contact({
     required this.id,
     required this.name,
   });

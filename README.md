@@ -1,120 +1,184 @@
 # Atomx
 
-A state management library for Flutter that focuses on value-centric state management, built on top of Flutter's native `ValueNotifier`.
+A value-centric state management library for Flutter, built on `ValueNotifier`. Atomx treats values and states as equals, allowing you to attach state directly to values instead of pages.
 
 ## Why Atomx?
 
 - 🎯 **Value-Centric**: State belongs to values, not pages
-- 🔄 **Reactive**: UI automatically updates when values or their states change
+- 🔄 **Reactive**: UI automatically updates when values or states change
 - 🎨 **Composable**: Combine multiple value states in a single builder
-- 🎮 **Control**: Fine-grained control over what triggers updates
-- 🪶 **Lightweight**: Built on Flutter's native `ValueNotifier`, no external dependencies
-- 🔌 **Native**: Seamlessly integrates with Flutter's widget lifecycle
+- 🪶 **Lightweight**: Built on Flutter's native `ValueNotifier`
 
-## Core Concept
-
-Instead of managing state at the page/widget level, Atomx encourages you to:
-1. Attach state directly to values
-2. React to value state changes
-3. Compose multiple value states in a single builder
+## Observable Types
 
 ```dart
-// Define a value with its state
-final counter = AtomxState<int, CounterState>(0, CounterState.initial);
+// 1. Basic value
+final counter = Atomx<int>(0);
 
-// React to both value and state changes
+// 2. Value with state
+final messages = AtomxState<List<Message>, LoadingState>([], LoadingState.initial);
+
+// 3. List
+final todos = AtomxList<Todo>([]);
+
+// 4. Map
+final users = AtomxMap<String, User>({});
+
+// 5. List with state
+final messages = AtomxListState<Message, MessagesState>([], MessagesState.initial);
+
+// 6. Map with state
+final contacts = AtomxMapState<String, Contact, ContactsState>({}, ContactsState.initial);
+```
+
+## Example: Chat App
+
+```dart
+// Define states (use enums for simple states)
+enum MessagesState { initial, loading, loaded, error }
+enum UserState { initial, loading, loaded, error }
+
+// Or classes for complex states
+abstract class BaseState {
+  const BaseState();
+}
+
+class LoadingState extends BaseState {
+  const LoadingState();
+}
+
+class ErrorState extends BaseState {
+  final String message;
+  const ErrorState(this.message);
+}
+
+class SuccessState<T> extends BaseState {
+  final T data;
+  const SuccessState(this.data);
+}
+
+// Define models with non-null properties
+class User {
+  final String id;
+  final String name;
+  final String avatarUrl;
+
+  const User({
+    required this.id,
+    required this.name,
+    required this.avatarUrl,
+  });
+
+  factory User.empty() => const User(
+    id: '',
+    name: 'Unknown',
+    avatarUrl: '',
+  );
+}
+
+class Message {
+  final String id;
+  final String chatId;
+  final String senderId;
+  final String content;
+  final DateTime timestamp;
+
+  const Message({
+    required this.id,
+    required this.chatId,
+    required this.senderId,
+    required this.content,
+    required this.timestamp,
+  });
+}
+
+// Create a controller
+class ChatController {
+  final currentUser = AtomxState<User, UserState>(User.empty(), UserState.initial);
+  final messages = AtomxListState<Message, MessagesState>([], MessagesState.initial);
+  final contacts = AtomxMapState<String, Contact, BaseState>({}, const LoadingState());
+
+  Future<void> loadCurrentUser() async {
+    currentUser.update(state: UserState.loading);
+    try {
+      final user = await fetchCurrentUser();
+      currentUser.update(
+        value: user,
+        state: UserState.loaded,
+      );
+    } catch (e) {
+      currentUser.update(state: UserState.error);
+    }
+  }
+
+  Future<void> loadMessages(String chatId) async {
+    messages.updateState(MessagesState.loading);
+    try {
+      final data = await fetchMessages(chatId);
+      messages.updateAll(
+        value: data,
+        state: MessagesState.loaded,
+      );
+    } catch (e) {
+      messages.updateState(MessagesState.error);
+    }
+  }
+
+  Future<void> loadContacts() async {
+    contacts.updateState(const LoadingState());
+    try {
+      final data = await fetchContacts();
+      contacts.updateMapAndState(
+        value: data,
+        state: SuccessState(data),
+      );
+    } catch (e) {
+      contacts.updateState(ErrorState(e.toString()));
+    }
+  }
+}
+
+// React to changes
 AtomxBuilder(
   builder: (context) {
-    return Text('Count: ${counter.value} (${counter.state})');
-  },
-);
+    final user = chatController.currentUser;
+    final messages = chatController.messages;
+    final contacts = chatController.contacts;
+    
+    // Show loading if any dependency is loading
+    if (user.state == UserState.loading || 
+        messages.state == MessagesState.loading ||
+        contacts.state is LoadingState) {
+      return CircularProgressIndicator();
+    }
 
-// React to multiple values in a single builder
-AtomxBuilder(
-  builder: (context) {
-    return Column(
-      children: [
-        Text('Count: ${counter.value}'),
-        Text('Email: ${email.value}'),
-        if (email.state == EmailState.loading)
-          CircularProgressIndicator(),
-      ],
+    // Show error if any dependency failed
+    if (user.state == UserState.error ||
+        messages.state == MessagesState.error ||
+        contacts.state is ErrorState) {
+      return Text('Something went wrong');
+    }
+
+    // Show chat when everything is loaded
+    return ListView.builder(
+      itemCount: messages.length,
+      itemBuilder: (context, index) {
+        final message = messages[index];
+        final contact = contacts[message.senderId];
+        final isCurrentUser = message.senderId == user.value.id;
+        
+        return ListTile(
+          leading: isCurrentUser ? null : CircleAvatar(
+            backgroundImage: NetworkImage(contact?.avatarUrl ?? ''),
+          ),
+          title: Text(contact?.name ?? 'Unknown'),
+          subtitle: Text(message.content),
+          trailing: isCurrentUser ? Icon(Icons.check) : null,
+        );
+      },
     );
   },
 );
 ```
-
-## Quick Start
-
-1. Create a value with state:
-```dart
-final counter = AtomxState<int, CounterState>(
-  0,  // initial value
-  CounterState.initial,  // initial state
-);
-```
-
-2. Update value and/or state:
-```dart
-counter.update(
-  value: counter.value + 1,  // update value
-  state: CounterState.counting,  // update state
-);
-
-// Or update just the state
-counter.update(state: CounterState.paused);
-```
-
-3. React to changes:
-```dart
-AtomxBuilder(
-  builder: (context) {
-    final value = counter.value;
-    final state = counter.state;
-    
-    return switch (state) {
-      CounterState.initial => Text('Ready: $value'),
-      CounterState.counting => Text('Counting: $value'),
-      CounterState.paused => Text('Paused at: $value'),
-    };
-  },
-);
-```
-
-## Collections
-
-Atomx also provides state-aware collections, all built on top of `ValueNotifier`:
-
-```dart
-// List with state
-final todos = AtomxListState<Todo, LoadingState>(
-  [],  // initial list
-  LoadingState.initial,  // initial state
-);
-
-// Map with state
-final users = AtomxMapState<String, User, LoadingState>(
-  {},  // initial map
-  LoadingState.initial,  // initial state
-);
-```
-
-## Under the Hood
-
-Atomx extends Flutter's `ValueNotifier` to provide state management capabilities:
-
-```dart
-// Basic value without state
-final counter = Atomx<int>(0);  // Extends ValueNotifier<int>
-
-// Value with state
-final counter = AtomxState<int, CounterState>(0, CounterState.initial);  // Extends ValueNotifier
-
-// Collections
-final list = AtomxList<int>([1, 2, 3]);  // Extends ValueNotifier<List<int>>
-final map = AtomxMap<String, int>({'a': 1});  // Extends ValueNotifier<Map<String, int>>
-```
-
-This means you get all the benefits of Flutter's native change notification system with the added power of state management.
 
 See the example app for a complete implementation. 

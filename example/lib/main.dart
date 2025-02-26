@@ -42,6 +42,7 @@ class _ChatPageState extends State<ChatPage> {
   void initState() {
     super.initState();
     _chatController.loadMessages();
+    _contactsController.fetchMe();
     _contactsController.loadContacts();
   }
 
@@ -50,7 +51,17 @@ class _ChatPageState extends State<ChatPage> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(widget.title),
+        title: AtomxBuilder(
+          builder: (context) {
+            final meState = _contactsController.me.state;
+            
+            if (meState == ContactsState.loading) {
+              return const CircularProgressIndicator();
+            }
+            
+            return Text(widget.title);
+          },
+        ),
       ),
       body: Column(
         children: [
@@ -60,8 +71,10 @@ class _ChatPageState extends State<ChatPage> {
                 final messages = _chatController.messages;
                 final messagesLength = messages.length;
                 final messagesState = messages.state;
+                final meState = _contactsController.me.state;
 
-                if (messagesState == MessagesState.loading) {
+                if (messagesState == MessagesState.loading || 
+                    meState == ContactsState.loading) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
@@ -69,11 +82,15 @@ class _ChatPageState extends State<ChatPage> {
                   itemCount: messagesLength,
                   itemBuilder: (context, index) {
                     final message = messages[index];
+                    final isMe = message.fromId == _contactsController.me.value.id;
+                    final contact = _contactsController.getContact(message.fromId);
+
                     return ListTile(
                       title: Text(
-                        _contactsController.getContactName(message.fromId),
+                        isMe ? _contactsController.me.value.name : (contact?.name ?? 'Unknown'),
                       ),
                       subtitle: Text(message.content),
+                      trailing: isMe ? const Icon(Icons.check) : null,
                     );
                   },
                 );
@@ -99,7 +116,7 @@ class _ChatPageState extends State<ChatPage> {
                       _chatController.sendMessage(
                         Message(
                           id: DateTime.now().toString(),
-                          fromId: '1', // Current user
+                          fromId: _contactsController.me.value.id,
                           toId: '2', // Recipient
                           content: _messageController.text,
                           timestamp: DateTime.now(),
