@@ -12,14 +12,19 @@ void main() {
       TestWidgetsFlutterBinding.ensureInitialized();
     });
 
-    testWidgets('Initial state shows loading indicator', (WidgetTester tester) async {
+    testWidgets('Initial state shows loading indicators', (WidgetTester tester) async {
       await tester.pumpWidget(const MyApp());
-      expect(find.text('Chat Demo'), findsOneWidget);
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      
+      // Initially we should see loading indicators in both AppBar and body
+      expect(find.byType(CircularProgressIndicator), findsNWidgets(2));
 
       // Wait for loading to complete (including the 1 second delay)
       await tester.pumpAndSettle(const Duration(seconds: 2));
+      
+      // After loading, we should see the title and input field
+      expect(find.text('Chat Demo'), findsOneWidget);
       expect(find.byType(TextField), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
     });
 
     testWidgets('Can send a message and see it in the list', (WidgetTester tester) async {
