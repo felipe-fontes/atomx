@@ -1,6 +1,6 @@
 name: atomx
 description: "A value-centric state management library for Flutter, built on ValueNotifier. Atomx treats values and states as equals, allowing you to attach state directly to values instead of pages."
-version: 0.0.1
+version: 1.0.0
 homepage: https://github.com/felipe-fontes/atomx
 repository: https://github.com/felipe-fontes/atomx
 issue_tracker: https://github.com/felipe-fontes/atomx/issues
